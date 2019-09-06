@@ -108,14 +108,13 @@ int __cdecl main(int argc, const char** argv) {
       start_delay = static_cast<float>(atof(argv[++i]));
     } else if (_stricmp(argv[i], "distance") == 0) {
       distance = atoi(argv[++i]);
-      i++;
     } else if (_stricmp(argv[i], "frequency") == 0) {
       frequency = atoi(argv[++i]);
     } else if (_stricmp(argv[i], "accelerate") == 0) {
       acceleration = true;
     } else {
       printf(
-          "pan.exe [repeat n] [start_delay n] [segment_delay n] [distance n] "
+          "pan.exe [repeat n] [startdelay n] [segmentdelay n] [distance n] "
           "[duration n] [frequency n] [accelerate] \r\n");
       printf("\r\n");
       printf(
