@@ -161,7 +161,7 @@ int __cdecl main(int argc, const char** argv) {
       printf("\r\n");
       printf(
           "    Note that touch input is injected at  100, 100 + "
-          "segmentdistance\r\n");
+          "distance\r\n");
       printf("\r\n");
       printf(
           "    Example: pan repeat 3 segmentdelay 0.5 distance 100 duration "
