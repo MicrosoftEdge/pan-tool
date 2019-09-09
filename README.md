@@ -22,7 +22,8 @@ on the arguments passed to the tool, it can result in either tap, pan or a fling
 Arguments that can be passed to the tool:
   * repeat - number of times to repeat the input sequence. The default value is 1.
   * startdelay - number of seconds to wait before starting any input. The default value is 1 second.
-  * segmentdelay - number of seconds to wait between each segment of the input sequence. The default value is 3 second.
+  * segmentdelay - number of seconds to wait between each repetition of the input segment. The default value is 3 seconds.
+  * sequencedelay - number of seconds to wait between each input sequence of a segment. The default value is 3 seconds.
   * distance - total number of pixels to move in a vertical direction. The default value is 500 pixels.
   * duration - number of second to take to perform the pan gesture. The default value is 1 second.
   * frequency - frequency/frame rate at which input needs to be injected. The default value is 100 frames per second.
