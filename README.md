@@ -27,6 +27,7 @@ Arguments that can be passed to the tool:
   * duration - number of second to take to perform the pan gesture. The default value is 1 second.
   * frequency - frequency/frame rate at which input needs to be injected. The default value is 100 frames per second.
   * accelerate - accelerate injection tool instead of linear movement. The default value is false.
+  * onedir - do not reverse the pan direction after completing a input sequence. The default value is false
   
 Note that touch input is injected at  100, 100 + distance.
 

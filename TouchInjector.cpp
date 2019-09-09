@@ -78,6 +78,44 @@ void SendPointerUp(POINTER_TOUCH_INFO* touch_info) {
   InjectPointer(touch_info);
 }
 
+// Injects the requested input from |start| to |end| in vertical direction.
+bool ExecuteInjection(POINTER_TOUCH_INFO* contact,
+                      uint32_t packets,
+                      long start,
+                      long end,
+                      HANDLE hTimer,
+                      bool accelerate) {
+  contact->pointerInfo.ptPixelLocation.y = start;
+  contact->rcContact.top = contact->pointerInfo.ptPixelLocation.y - 2;
+  contact->rcContact.bottom = contact->pointerInfo.ptPixelLocation.y + 2;
+  contact->rcContact.left = contact->pointerInfo.ptPixelLocation.x - 2;
+  contact->rcContact.right = contact->pointerInfo.ptPixelLocation.x + 2;
+
+  SendPointerDown(contact);
+
+  for (uint32_t i = 1; i <= packets; i++) {
+    if (WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0) {
+      printf("WaitForSingleObject failed (%d)\n", GetLastError());
+      CancelWaitableTimer(hTimer);
+      CloseHandle(hTimer);
+      return false;
+    }
+
+    double ratio = static_cast<double>(i) / static_cast<double>(packets);
+    if (accelerate)
+      ratio *= (1.0f * (ratio - 1) + 1);
+
+    // Updating the Y Co-ordinate
+    contact->pointerInfo.ptPixelLocation.y = Interpolate(start, end, ratio);
+    contact->rcContact.right = contact->pointerInfo.ptPixelLocation.y + 2;
+    contact->rcContact.bottom = contact->pointerInfo.ptPixelLocation.y + 2;
+    SendPointerMove(contact);
+  }
+
+  SendPointerUp(contact);
+  return true;
+}
+
 // Entry point for the application.
 int __cdecl main(int argc, const char** argv) {
   // Default values
@@ -95,6 +133,8 @@ int __cdecl main(int argc, const char** argv) {
   int frequency = 100;
   // True if pan gesture needs to accelerate.
   bool acceleration = false;
+  // True if pan injection is uni-directional.
+  bool onedir = false;
 
   // Parse command line arguments.
   for (int i = 1; i < argc; i++) {
@@ -112,10 +152,12 @@ int __cdecl main(int argc, const char** argv) {
       frequency = atoi(argv[++i]);
     } else if (_stricmp(argv[i], "accelerate") == 0) {
       acceleration = true;
+    } else if (_stricmp(argv[i], "onedir") == 0) {
+      onedir = true;
     } else {
       printf(
           "pan.exe [repeat n] [startdelay n] [segmentdelay n] [distance n] "
-          "[duration n] [frequency n] [accelerate] \r\n");
+          "[duration n] [frequency n] [accelerate] [onedir]\r\n");
       printf("\r\n");
       printf(
           "    Note that touch input is injected at  100, 100 + "
@@ -148,6 +190,9 @@ int __cdecl main(int argc, const char** argv) {
       printf(
           "    accelerate - accelerate injection tool instead of linear "
           "movement. The default value is false. \r\n");
+      printf(
+          "    onedir - do not reverse the pan direction after completing a "
+          "input sequence. The default value is false. \r\n");
       return -1;
     }
   }
@@ -155,12 +200,12 @@ int __cdecl main(int argc, const char** argv) {
   // Increase the thread priority to help ensure we're getting
   // input delivered in a timely manner.
   if (!SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS)) {
-      printf("Error calling SetPriorityClass: %d\r\n", GetLastError());
-      return -1;
+    printf("Error calling SetPriorityClass: %d\r\n", GetLastError());
+    return -1;
   }
   if (!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL)) {
-      printf("Error calling SetThreadPriority: %d\r\n", GetLastError());
-      return -1;
+    printf("Error calling SetThreadPriority: %d\r\n", GetLastError());
+    return -1;
   }
 
   // Starting point for a pan gesture.
@@ -192,8 +237,8 @@ int __cdecl main(int argc, const char** argv) {
       injection_interval_in_ms_from_frequency *
       (MS_PER_SEC * (qpc_frequency.QuadPart / US_PER_SEC)));
 
-  // Create a negative 64-bit integer that will be used to signal the timer 
-  // |injection_interval_in_ms_from_frequency| milliseconds from now. Negative 
+  // Create a negative 64-bit integer that will be used to signal the timer
+  // |injection_interval_in_ms_from_frequency| milliseconds from now. Negative
   // values allows relative time offset instead of absolute times.
   LARGE_INTEGER li_due_time;
   li_due_time.QuadPart =
@@ -214,6 +259,15 @@ int __cdecl main(int argc, const char** argv) {
   // Initialize touch injection with max of 1 contacts.
   InitializeTouchInjection(1, TOUCH_FEEDBACK_DEFAULT);
 
+  contact.pointerInfo.pointerType = PT_TOUCH;  // we're sending touch input
+  contact.pointerInfo.pointerId = 0;           // contact 0
+  contact.pointerInfo.ptPixelLocation.x = startx;
+  contact.touchFlags = TOUCH_FLAG_NONE;
+  contact.touchMask =
+      TOUCH_MASK_CONTACTAREA | TOUCH_MASK_ORIENTATION | TOUCH_MASK_PRESSURE;
+  contact.orientation = 0;
+  contact.pressure = 0;
+
   // Delay the start of injection by |start_delay| seconds.
   Sleep(static_cast<DWORD>(start_delay * MS_PER_SEC));
 
@@ -222,42 +276,20 @@ int __cdecl main(int argc, const char** argv) {
       duration_in_ms, injection_interval_in_ms_from_frequency);
 
   for (int c = 0; c < repeat; c++) {
-    contact.pointerInfo.pointerType = PT_TOUCH;  // we're sending touch input
-    contact.pointerInfo.pointerId = 0;           // contact 0
-    contact.pointerInfo.ptPixelLocation.x = startx;
-    contact.pointerInfo.ptPixelLocation.y = starty;
-    contact.touchFlags = TOUCH_FLAG_NONE;
-    contact.touchMask =
-        TOUCH_MASK_CONTACTAREA | TOUCH_MASK_ORIENTATION | TOUCH_MASK_PRESSURE;
-    contact.orientation = 0;
-    contact.pressure = 0;
-    contact.rcContact.top = contact.pointerInfo.ptPixelLocation.y - 2;
-    contact.rcContact.bottom = contact.pointerInfo.ptPixelLocation.y + 2;
-    contact.rcContact.left = contact.pointerInfo.ptPixelLocation.x - 2;
-    contact.rcContact.right = contact.pointerInfo.ptPixelLocation.x + 2;
-
-    SendPointerDown(&contact);
-
-    for (uint32_t i = 1; i <= packets; i++) {
-      if (WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0) {
-        printf("WaitForSingleObject failed (%d)\n", GetLastError());
-        CancelWaitableTimer(hTimer);
-        CloseHandle(hTimer);
-        return -1;
-      }
-
-      double ratio = static_cast<double>(i) / static_cast<double>(packets);
-      if (acceleration)
-        ratio *= (1.0f * (ratio - 1) + 1);
-
-      // Updating the Y Co-ordinate
-      contact.pointerInfo.ptPixelLocation.y = Interpolate(starty, endy, ratio);
-      contact.rcContact.right = contact.pointerInfo.ptPixelLocation.y + 2;
-      contact.rcContact.bottom = contact.pointerInfo.ptPixelLocation.y + 2;
-      SendPointerMove(&contact);
+    if (!ExecuteInjection(&contact, packets, starty, endy, hTimer,
+                          acceleration)) {
+      return -1;
     }
 
-    SendPointerUp(&contact);
+    // Wait for 3 seconds before injecting gesture in reverse
+    // direciton.
+    Sleep(static_cast<DWORD>(3 * MS_PER_SEC));
+
+    if (!onedir) {
+      if (!ExecuteInjection(&contact, packets, endy, starty, hTimer,
+                            acceleration))
+        return -1;
+    }
 
     // Delay the next sequence of injection by |segment_delay| seconds.
     if (repeat != 1)
