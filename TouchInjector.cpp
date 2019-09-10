@@ -127,8 +127,12 @@ int __cdecl main(int argc, const char** argv) {
   int repeat = 1;
   // Number of seconds to wait before starting any input.
   float start_delay = 1;
-  // Number of seconds to wait between each segment of the input sequence.
+  // Number of seconds to wait between each repetition of the input segment.
   float segment_delay = 3;
+  // One segment can contain upto two input sequences, one in forward and one in
+  // reverse direction. |sequence_delay| specifies the number of seconds to wait
+  // between each input sequence.
+  float sequence_delay = 3;
   // Frequency/frame rate at which input needs to be injected.
   int frequency = 100;
   // True if pan gesture needs to accelerate.
@@ -146,6 +150,8 @@ int __cdecl main(int argc, const char** argv) {
       segment_delay = static_cast<float>(atof(argv[++i]));
     } else if (_stricmp(argv[i], "startdelay") == 0) {
       start_delay = static_cast<float>(atof(argv[++i]));
+    } else if (_stricmp(argv[i], "sequencedelay") == 0) {
+      sequence_delay = static_cast<float>(atof(argv[++i]));
     } else if (_stricmp(argv[i], "distance") == 0) {
       distance = atoi(argv[++i]);
     } else if (_stricmp(argv[i], "frequency") == 0) {
@@ -156,7 +162,8 @@ int __cdecl main(int argc, const char** argv) {
       onedir = true;
     } else {
       printf(
-          "pan.exe [repeat n] [startdelay n] [segmentdelay n] [distance n] "
+          "pan.exe [repeat n] [startdelay n] [segmentdelay n] [sequencedelay "
+          "n] [distance n] "
           "[duration n] [frequency n] [accelerate] [onedir]\r\n");
       printf("\r\n");
       printf(
@@ -174,16 +181,18 @@ int __cdecl main(int argc, const char** argv) {
           "    startdelay - number of seconds to wait before starting any "
           "input. The default value is 1 second.\r\n");
       printf(
-          "    segmentdelay - number of seconds to wait between each segment "
-          "of the input sequence. The default value is 3 second.\r\n");
+          "    segmentdelay - number of seconds to wait between each "
+          "repetition of the input segment. The default value is 3 "
+          "seconds.\r\n");
+      printf(
+          "    sequencedelay - number of seconds to wait between each input "
+          "sequence of a segment. The default value is 3 seconds.\r\n");
       printf(
           "    distance - total number of pixels to move in a direction. The "
           "default value is 500 pixels.\r\n");
-      printf("\r\n");
       printf(
           "    duration - number of second to take to perform the pan gesture. "
           "The default value is 1 second.\r\n");
-      printf("\r\n");
       printf(
           "    frequency - frequency/frame rate at which input needs to be "
           "injected. The default value is 100 frames per second.\r\n");
@@ -281,9 +290,9 @@ int __cdecl main(int argc, const char** argv) {
       return -1;
     }
 
-    // Wait for 3 seconds before injecting gesture in reverse
-    // direciton.
-    Sleep(static_cast<DWORD>(3 * MS_PER_SEC));
+    // Wait for |sequence_delay| seconds before injecting gesture in reverse
+    // direction.
+    Sleep(static_cast<DWORD>(sequence_delay * MS_PER_SEC));
 
     if (!onedir) {
       if (!ExecuteInjection(&contact, packets, endy, starty, hTimer,
